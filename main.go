@@ -72,6 +72,6 @@ func (c *Client) handleConnection(){
 }
 
 func main(){
-	s:=NewServer("127.0.1.1","8088")
+	s:=NewServer("","8080")
 	s.Listen()
 }
