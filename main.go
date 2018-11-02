@@ -3,8 +3,8 @@ package main
 import (
 	"net"
 	"log"
-	"fmt"
 	"os"
+	"fmt"
 )
 
 type Server struct {
@@ -28,6 +28,7 @@ func (s *Server) Listen(){
 		log.Fatal("Error listening: ",err)
 		os.Exit(1)
 	}
+	defer listener.Close()
 	for{
 		conn,err:=listener.Accept()
 		if err!=nil{
@@ -59,16 +60,18 @@ func (c *Client) SendString(message string){
 }
 
 func (c *Client) handleConnection(){
-	log.Println("Listening for connection on: ",c.Addr())
 	defer c.Close()
-	c.SendString("Hello " + c.Addr()+"\n")
-	buf := make([]byte, 1024)
-	_, err := c.conn.Read(buf)
-	if err != nil {
+	log.Println("Listening for connection on: ", c.Addr())
+	c.SendString("Hello " + c.Addr() + "\n")
+	log.Println("send hello")
+	input := make([]byte, 1024)
+	n, err := c.conn.Read(input)
+	if err != nil || n == 0 {
 		fmt.Println("Error reading:", err.Error())
+		os.Exit(1)
 	}
 	c.SendString("You entered: ")
-	c.conn.Write(buf)
+	c.conn.Write(input)
 }
 
 func main(){
