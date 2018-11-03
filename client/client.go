@@ -5,6 +5,7 @@ import (
 	"log"
 	"fmt"
 	"os"
+	"bufio"
 )
 
 type Client struct {
@@ -25,7 +26,6 @@ func (c *Client) startClient(){
 	if err!=nil{
 		log.Fatal("Error connecting to the server: ",err)
 	}
-	defer conn.Close()
 	//io.Copy(os.Stdout, conn)
 	buf := make([]byte, 1024)
 	k, er := conn.Read(buf)
@@ -33,10 +33,12 @@ func (c *Client) startClient(){
 		fmt.Println("Error reading from server: ", er)
 		os.Exit(1)
 	}
-	fmt.Println(string(buf))
+	fmt.Print(string(buf))
 	var input string
+	scanner := bufio.NewScanner(os.Stdin)
 	fmt.Print("Input: ")
-	fmt.Scanln(&input)
+	scanner.Scan()
+	input = scanner.Text()
 	n, e := conn.Write([]byte(input))
 	if e != nil || n == 0 {
 		fmt.Println("Error:", err.Error())
@@ -51,6 +53,7 @@ func (c *Client) startClient(){
 		os.Exit(1)
 	}
 	fmt.Println(string(buf))
+	conn.Close()
 }
 
 func main(){
