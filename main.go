@@ -63,18 +63,25 @@ func (c *Client) handleConnection(){
 	log.Println("Listening for connection on: ", c.Addr())
 	c.SendString("Hello " + c.Addr() + "\n")
 	log.Println("send hello")
-	input := make([]byte, 1024)
-	n, err := c.conn.Read(input)
-	if err != nil || n == 0 {
-		fmt.Println("Error reading:", err.Error())
-		os.Exit(1)
+	for {
+		input := make([]byte, 1024)
+		n, err := c.conn.Read(input)
+		if string(input)=="exit"{
+			break
+		}
+		log.Println("get from client: ",string(input))
+		if err != nil || n == 0 {
+			fmt.Println("Error reading:", err.Error())
+			os.Exit(1)
+		}
+		c.SendString("You entered: ")
+		_, e := c.conn.Write(input)
+		if e != nil {
+			fmt.Println("error sending to client: ", e)
+		}
+		log.Println("sending to client: ",string(input))
+		input=input[:0]
 	}
-	c.SendString("You entered: ")
-	_,e:=c.conn.Write(input)
-	if e!=nil{
-		fmt.Println("error sending to client: ",e)
-	}
-	log.Println("Entered: ",string(input))
 	c.conn.Close()
 }
 
