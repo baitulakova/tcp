@@ -60,7 +60,6 @@ func (c *Client) SendString(message string){
 }
 
 func (c *Client) handleConnection(){
-	defer c.Close()
 	log.Println("Listening for connection on: ", c.Addr())
 	c.SendString("Hello " + c.Addr() + "\n")
 	log.Println("send hello")
@@ -71,7 +70,12 @@ func (c *Client) handleConnection(){
 		os.Exit(1)
 	}
 	c.SendString("You entered: ")
-	c.conn.Write(input)
+	_,e:=c.conn.Write(input)
+	if e!=nil{
+		fmt.Println("error sending to client: ",e)
+	}
+	log.Println("Entered: ",string(input))
+	c.conn.Close()
 }
 
 func main(){

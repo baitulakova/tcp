@@ -38,11 +38,9 @@ func (c *Client) startClient(){
 	fmt.Print("Input: ")
 	fmt.Scanln(&input)
 	n, e := conn.Write([]byte(input))
-	conn.Close()
 	if e != nil || n == 0 {
 		fmt.Println("Error:", err.Error())
 	}
-	log.Println("Successfully send message to server")
 
 	//server
 	fmt.Println("Server answer:")
