@@ -41,7 +41,8 @@ func (c *Client) startClient(){
 		scanner.Scan()
 		input = scanner.Text()
 		if input=="exit"{
-			break
+			conn.Close()
+			os.Exit(0)
 		}
 		//log.Println("sending to server: ",input)
 		n, e := conn.Write([]byte(input))
@@ -51,14 +52,15 @@ func (c *Client) startClient(){
 		//log.Println("write to conn: ", input)
 		//server
 		fmt.Println("Server answer:")
-		buf = make([]byte, 1024)
-		k, er = conn.Read(buf)
+		buff := make([]byte, 1024)
+		k, er = conn.Read(buff)
 		if er != nil || k == 0 {
 			fmt.Println("Error reading from server: ", er)
 			os.Exit(1)
 		}
-		//log.Println("get from server: ",string(buf))
-		fmt.Println(string(buf))
+		//log.Println("get from server: ",string(buff))
+		fmt.Println(string(buff))
+		buff=buff[:0]
 	}
 	conn.Close()
 }

@@ -62,7 +62,6 @@ func (c *Client) SendString(message string){
 func (c *Client) handleConnection(){
 	log.Println("Listening for connection on: ", c.Addr())
 	c.SendString("Hello " + c.Addr() + "\n")
-	log.Println("send hello")
 	for {
 		input := make([]byte, 1024)
 		n, err := c.conn.Read(input)
@@ -74,7 +73,6 @@ func (c *Client) handleConnection(){
 			fmt.Println("Error reading:", err.Error())
 			os.Exit(1)
 		}
-		c.SendString("You entered: ")
 		_, e := c.conn.Write(input)
 		if e != nil {
 			fmt.Println("error sending to client: ", e)
