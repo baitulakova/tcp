@@ -5,13 +5,7 @@ import (
 	"log"
 	"os"
 	"fmt"
-	"bufio"
-	"io"
-	"flag"
-)
-
-var(
-	command = flag.String("c","","choose command")
+	"strings"
 )
 
 type Server struct {
@@ -29,8 +23,6 @@ func NewServer(addr,p string) *Server{
 }
 
 func (s *Server) Listen(){
-	flag.Parse()
-	log.Println("c: ",*command)
 	log.Println("Listening to server: ",s.address+":"+s.port)
 	listener,err:=net.Listen("tcp", s.address+":"+s.port)
 	if err!=nil{
@@ -47,7 +39,7 @@ func (s *Server) Listen(){
 		client:=&Client{
 			conn:conn,
 		}
-		go client.handleConnection(*command)
+		go client.handleConnection()
 	}
 }
 
@@ -64,20 +56,44 @@ func (c *Client) Close(){
 	log.Printf("Connection with %v closed",c.Addr())
 }
 
+func (c *Client) ChooseMode()string{
+	buf := make([]byte, 1024)
+	n, er := c.conn.Read(buf)
+	if er != nil{
+		fmt.Println("Error reading from client mode type: ", er)
+		os.Exit(1)
+	}
+	return string(buf[:n])
+}
+
 func (c *Client) SendString(message string){
 	c.conn.Write([]byte(message))
 }
 
-func (c *Client) handleConnection(command string){
+//get data from client
+func GetData(conn net.Conn)string{
+	data:=make([]byte,1024)
+	n,err:=conn.Read(data)
+	if err!=nil{
+		log.Fatal("Error reading data from client: ",err)
+	}
+	return string(data[:n])
+}
+
+func (c *Client) handleConnection(){
 	log.Println("Listening for connection on: ", c.Addr())
 	c.SendString("Hello " + c.Addr() + "\n")
+	command:=c.ChooseMode()
+	log.Println("Got mode type: ",command)
 	if command=="file"{
+		log.Println("Client want to transfer file")
 		err:=fileTransfer(c.conn)
 		if err!=nil{
 			log.Fatal("Error in fileTransfer: ", err)
 			os.Exit(1)
 		}
-	}else {
+	}else if command=="exe"{
+		log.Println("Client want to execute")
 		for {
 			input := make([]byte, 1024)
 			n, err := c.conn.Read(input)
@@ -101,25 +117,37 @@ func (c *Client) handleConnection(command string){
 	c.conn.Close()
 }
 
-func fileTransfer(conn net.Conn) error {
-	log.Println("In file transfer")
-	defer conn.Close()
-	scanner := bufio.NewScanner(os.Stdin)
-	fmt.Print("Input path to file: ")
-	scanner.Scan()
-	input := scanner.Text()
-	f,errOpenFile:=os.Open(input)
-	if errOpenFile!=nil{
-		log.Fatal("File not found. No such file.")
-		os.Exit(1)
+func createStorage() (path string){
+	userHome:=os.Getenv("HOME")
+	path = userHome+"/TCPServerStorage/"
+	err:=os.MkdirAll(path,os.ModePerm)
+	if err!=nil{
+		fmt.Println("Error creating file storage: ",err)
 	}
-	file, err := os.Create(f.Name())
+	return path
+}
+
+func fileTransfer(conn net.Conn) error {
+	log.Println("File uploading started")
+	defer conn.Close()
+	filedata:=GetData(conn)
+	fd:=strings.Split(filedata,"/")
+	filename:=fd[0]
+	data:=fd[1]
+	log.Println("Creating file storage")
+	fs:=createStorage()
+	log.Println("Succesfully created file storage at: ",fs)
+	log.Println("Creating file")
+	file, err := os.Create(fs+filename)
 	if err != nil {
-		log.Println("Error in create")
+		log.Println("Error in create file strorage")
 		return err
 	}
-	_, err = io.Copy(file, f)
-	log.Println("End of transfer")
+	log.Println("Successfully created file ",filename)
+	defer file.Close()
+	log.Println("Successfully got data from client")
+	file.WriteString(data)
+	log.Println("Uploaded file: ",filename)
 	return err
 }
 
