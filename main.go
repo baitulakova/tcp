@@ -47,7 +47,7 @@ type Client struct{
 	conn net.Conn
 }
 
-func (c *Client) Addr()string{
+func (c *Client) Addr() string{
 	return c.conn.RemoteAddr().String()
 }
 
@@ -70,7 +70,7 @@ func (c *Client) SendString(message string){
 	c.conn.Write([]byte(message))
 }
 
-//get data from client
+//GetData read data from connection
 func GetData(conn net.Conn)string{
 	data:=make([]byte,1024)
 	n,err:=conn.Read(data)
@@ -84,40 +84,29 @@ func (c *Client) handleConnection(){
 	log.Println("Listening for connection on: ", c.Addr())
 	c.SendString("Hello " + c.Addr() + "\n")
 	command:=c.ChooseMode()
-	log.Println("Got mode type: ",command)
 	if command=="file"{
-		log.Println("Client want to transfer file")
-		err:=fileTransfer(c.conn)
-		if err!=nil{
-			log.Fatal("Error in fileTransfer: ", err)
-			os.Exit(1)
-		}
-	}else if command=="exe"{
-		log.Println("Client want to execute")
+		log.Println("Client want to upload file")
+			Uploadfile(c.conn)
+			log.Println("Successfully uploaded file")
+	}else if command=="r"{
+		log.Println("Client chose routine mode")
 		for {
-			input := make([]byte, 1024)
-			n, err := c.conn.Read(input)
-			log.Println("get from client: ", string(input))
-			if err != nil || n == 0 {
-				fmt.Println("Error reading:", err.Error())
-				os.Exit(1)
-			}
-			if string(input) == "exit" {
-				c.Close()
-				os.Exit(1)
-			}
-			_, e := c.conn.Write(input)
+			input:=GetData(c.conn)
+			_, e := c.conn.Write([]byte(input))
 			if e != nil {
-				fmt.Println("error sending to client: ", e)
+				fmt.Println("Error sending to client: ", e)
 			}
-			log.Println("sending to client: ", string(input))
+			log.Println("Sending to client: ", string(input))
 			input = input[:0]
 		}
+	} else{
+		log.Println("Indicated incorrect flag. Flag was: ",command)
 	}
-	c.conn.Close()
+	c.Close()
 }
 
-func createStorage() (path string){
+//CreateStorage create storage for files which will be uploaded to server
+func CreateStorage() (path string){
 	userHome:=os.Getenv("HOME")
 	path = userHome+"/TCPServerStorage/"
 	err:=os.MkdirAll(path,os.ModePerm)
@@ -127,28 +116,33 @@ func createStorage() (path string){
 	return path
 }
 
-func fileTransfer(conn net.Conn) error {
+func Uploadfile(conn net.Conn){
 	log.Println("File uploading started")
 	defer conn.Close()
 	filedata:=GetData(conn)
 	fd:=strings.Split(filedata,"/")
+	if len(fd)==0{
+		log.Println("Error filename and data are empty.")
+		conn.Close()
+	}
 	filename:=fd[0]
 	data:=fd[1]
+	log.Println("Successfully got data from client")
 	log.Println("Creating file storage")
-	fs:=createStorage()
+	fs:=CreateStorage()
 	log.Println("Succesfully created file storage at: ",fs)
 	log.Println("Creating file")
 	file, err := os.Create(fs+filename)
 	if err != nil {
-		log.Println("Error in create file strorage")
-		return err
+		log.Fatal("Error in creation file: ",err)
 	}
 	log.Println("Successfully created file ",filename)
 	defer file.Close()
-	log.Println("Successfully got data from client")
-	file.WriteString(data)
+	_,err=file.WriteString(data)
+	if err!=nil{
+		log.Fatal("Error in writing data to file: ",err)
+	}
 	log.Println("Uploaded file: ",filename)
-	return err
 }
 
 func main(){

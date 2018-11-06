@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-var mode=flag.String("m","","Execute or file transfer")
+var mode=flag.String("m","","Uploading file or routine mode")
 
 type Client struct {
 	Addr string
@@ -19,7 +19,7 @@ type Client struct {
 	Mode string
 }
 
-func NewClient(addr,port,mode string,)*Client{
+func NewClient(addr,port,mode string)*Client{
 	client:=&Client{
 		Addr:addr,
 		Port:port,
@@ -30,7 +30,7 @@ func NewClient(addr,port,mode string,)*Client{
 
 func interruptConn(conn net.Conn){
 		conn.Close()
-		os.Exit(0)
+		fmt.Println("Connection closed")
 }
 
 func ReadFile(file *os.File)string{
@@ -45,14 +45,12 @@ func ReadFile(file *os.File)string{
 		}
 		fd=string(data[:n])
 	}
-	log.Println("fd: ",fd)
 	return fd
 }
 
 func SendToServer(conn net.Conn,filename,data string){
 	log.Println("Sending to server data")
 	filedata:=filename+"/"+data
-	log.Println("Sending: ",filedata)
 	_,err:=conn.Write([]byte(filedata))
 	if err!=nil{
 		log.Fatal("Error in sending to server filename: ",err)
@@ -60,11 +58,11 @@ func SendToServer(conn net.Conn,filename,data string){
 	log.Println("Successfully sending data to server")
 }
 
-//return filename from the file path
+//getFilename return filename from the file path
 func getFilename(filepath string)(filename string){
 	f:=strings.Split(filepath,"/")
 	filename=f[len(f)-1]
-	log.Printf("Psth: %v, filename: %v",filepath,filename)
+	log.Printf("Path: %v, filename: %v",filepath,filename)
 	return filename
 }
 
@@ -78,15 +76,13 @@ func (c *Client) startClient(){
 	if e!=nil{
 		log.Fatal("Error in sending mode type to server")
 	}
-	log.Println("Sended to server mode type")
 	//read from server
 	buf := make([]byte, 1024)
 	k, er := conn.Read(buf)
 	if er != nil || k == 0 {
 		fmt.Println("Error reading from server: ", er)
-		os.Exit(1)
+		interruptConn(conn)
 	}
-	fmt.Print(string(buf))
 	var input string
 	for {
 		if c.Mode == "file" {
@@ -95,52 +91,50 @@ func (c *Client) startClient(){
 			scanner.Scan()
 			filepath := scanner.Text()
 			if filepath=="exit"{
-				interruptConn(conn)
+				break
 			}
 			f,err:=os.Open(filepath)
 			if err!=nil{
 				log.Println("Error in opening file: ",err)
-				fmt.Println(err)
-				return
+				break
 			}
 			filename:=getFilename(filepath)
 			fileData:=ReadFile(f)
 			SendToServer(conn,filename,fileData)
 			f.Close()
-			log.Println("OK")
-		} else {
+		} else if c.Mode=="r"{
 			scanner := bufio.NewScanner(os.Stdin)
 			fmt.Print("Input: ")
 			scanner.Scan()
 			input = scanner.Text()
 			if input == "exit" {
-				interruptConn(conn)
+				break
 			}
-			//log.Println("sending to server: ",input)
 			n, e := conn.Write([]byte(input))
 			if e != nil || n == 0 {
-				fmt.Println("Error:", err)
+				fmt.Println("Error in sending input text to server:", err)
+				break
 			}
-			//log.Println("write to conn: ", input)
 			//server
-			fmt.Println("Server answer:")
+			fmt.Println("Server's answer is:")
 			buff := make([]byte, 1024)
 			k, er = conn.Read(buff)
 			if er != nil || k == 0 {
 				fmt.Println("Error reading from server: ", er)
-				os.Exit(1)
+				break
 			}
-			//log.Println("get from server: ",string(buff))
-			fmt.Println(string(buff))
+			fmt.Println(string(buff[:k]))
 			buff = buff[:0]
+		}else{
+			fmt.Println("You indicated incorrect flag. Please use -m=file or -m=r")
+			break
 		}
 	}
-	conn.Close()
+	interruptConn(conn)
 }
 
 func main(){
 	flag.Parse()
 	c:=NewClient("","8080",*mode)
-	log.Println("mode: ",c.Mode)
 	c.startClient()
 }
